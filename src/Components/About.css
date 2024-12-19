@@ -1,0 +1,24 @@
+.black-box {
+    background-color: black;
+    color: white; /* Text color */
+    padding: 20px; /* Space inside the container */
+    width: 300px; /* Fixed width */
+    border-radius: 8px; /* Optional: rounded corners */
+    text-align: center; /* Center align text and image */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Optional: Add a shadow */
+}
+
+/* Styling the image */
+.black-box img {
+    max-width: 100%; /* Responsive image */
+    height: auto;
+    border: 3px solid white; /* Optional: Image border */
+    border-radius: 5px; /* Rounded edges */
+    margin-bottom: 10px; /* Space below image */
+}
+
+/* Styling the text */
+.black-box p {
+    font-size: 16px;
+    margin: 0; /* Remove default margins */
+}
