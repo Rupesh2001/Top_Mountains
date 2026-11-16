@@ -1,0 +1,72 @@
+name: Reusable Deploy
+
+# Shared deploy logic, called by cd-uat.yml and cd-production.yml.
+# It never runs by itself (workflow_call only).
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub environment to deploy to (uat or production)
+        required: true
+        type: string
+      release_id:
+        description: Commit SHA used as the release folder name
+        required: true
+        type: string
+      run_id:
+        description: Run that built the artifact. Leave empty to use the current run.
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.APP_URL }}
+    steps:
+      - name: Download build (same run)
+        if: inputs.run_id == ''
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build
+          path: dist
+
+      - name: Download build (from an earlier run)
+        if: inputs.run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build
+          path: dist
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload new release
+        run: |
+          rsync -az --delete dist/ \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/releases/${{ inputs.release_id }}/"
+
+      - name: Switch to new release and clean old ones
+        run: |
+          ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "
+            ln -sfn ${{ secrets.DEPLOY_PATH }}/releases/${{ inputs.release_id }} ${{ secrets.DEPLOY_PATH }}/current &&
+            ls -dt ${{ secrets.DEPLOY_PATH }}/releases/* | tail -n +6 | xargs -r rm -rf
+          "
+
+      - name: Verify the site responds
+        run: |
+          curl --fail --silent --show-error \
+            --retry 5 --retry-delay 5 --retry-all-errors \
+            "${{ vars.APP_URL }}"

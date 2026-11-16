@@ -1,0 +1,30 @@
+name: CD - Production
+
+# Starts only after "CD - UAT" finishes successfully (including its UAT check).
+# Deploys the SAME build that was tested on UAT. Nothing is rebuilt.
+on:
+  workflow_run:
+    workflows: ["CD - UAT"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy-production:
+    if: github.event.workflow_run.conclusion == 'success'
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: production
+      release_id: ${{ github.event.workflow_run.head_sha }}
+      run_id: ${{ github.event.workflow_run.id }}
+    secrets: inherit
+    permissions:
+      contents: read
+      actions: read
